@@ -3,7 +3,7 @@ name: Push to Replicate
 on:
   workflow_dispatch:
     inputs:
-      model_name:
+      model_name: 
         description: 'Enter the model name, like "your-username/whisperx-replicate"'
         required: true
 
