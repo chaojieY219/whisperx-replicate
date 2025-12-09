@@ -5,29 +5,19 @@ from whisperx.audio import N_SAMPLES, log_mel_spectrogram
 import gc
 import math
 import os
+
+# Make torch.load behave like pre-2.6 (weights_only=False) for libraries that don't
+# yet pass weights_only explicitly, such as pyannote/lightning. This avoids the
+# new safe-unpickler errors when loading older checkpoints that store more than
+# plain tensor weights. See PyTorch docs on TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD.
+os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
+
 import shutil
 import whisperx
 import tempfile
 import time
 import torch
 import ffmpeg
-
-# Work around PyTorch 2.6+ safe loading behaviour for older pyannote checkpoints.
-# PyTorch 2.6 changed torch.load(..., weights_only) default to True, which breaks
-# loading checkpoints that reference various omegaconf classes unless we explicitly
-# mark those classes as safe to unpickle.
-try:
-    from torch.serialization import add_safe_globals
-    import omegaconf
-
-    add_safe_globals([
-        omegaconf.listconfig.ListConfig,
-        # Needed by newer pyannote checkpoints when loaded with weights_only=True
-        getattr(omegaconf.base, "ContainerMetadata", None),
-    ])
-except Exception:
-    # If anything fails we silently ignore; worst case we get the original error.
-    pass
 
 compute_type = "float16"  # change to "int8" if low on GPU mem (may reduce accuracy)
 device = "cuda"
