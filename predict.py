@@ -14,13 +14,17 @@ import ffmpeg
 
 # Work around PyTorch 2.6+ safe loading behaviour for older pyannote checkpoints.
 # PyTorch 2.6 changed torch.load(..., weights_only) default to True, which breaks
-# loading checkpoints that reference omegaconf ListConfig unless we explicitly
-# mark that class as safe to unpickle.
+# loading checkpoints that reference various omegaconf classes unless we explicitly
+# mark those classes as safe to unpickle.
 try:
     from torch.serialization import add_safe_globals
     import omegaconf
 
-    add_safe_globals([omegaconf.listconfig.ListConfig])
+    add_safe_globals([
+        omegaconf.listconfig.ListConfig,
+        # Needed by newer pyannote checkpoints when loaded with weights_only=True
+        getattr(omegaconf.base, "ContainerMetadata", None),
+    ])
 except Exception:
     # If anything fails we silently ignore; worst case we get the original error.
     pass
