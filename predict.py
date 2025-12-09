@@ -12,6 +12,19 @@ import time
 import torch
 import ffmpeg
 
+# Work around PyTorch 2.6+ safe loading behaviour for older pyannote checkpoints.
+# PyTorch 2.6 changed torch.load(..., weights_only) default to True, which breaks
+# loading checkpoints that reference omegaconf ListConfig unless we explicitly
+# mark that class as safe to unpickle.
+try:
+    from torch.serialization import add_safe_globals
+    import omegaconf
+
+    add_safe_globals([omegaconf.listconfig.ListConfig])
+except Exception:
+    # If anything fails we silently ignore; worst case we get the original error.
+    pass
+
 compute_type = "float16"  # change to "int8" if low on GPU mem (may reduce accuracy)
 device = "cuda"
 # Use Hugging Face repo ID so whisperx/faster-whisper download the model themselves.
