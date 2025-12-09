@@ -4,7 +4,6 @@ torchvision==0.20.1+cu121
 torchaudio==2.5.1+cu121
 
 ffmpeg-python
-pyannote.audio==3.3.2
 ctranslate2==4.4.0
 faster-whisper==1.1.0
 whisperx==3.3.1
