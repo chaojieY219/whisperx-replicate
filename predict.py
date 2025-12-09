@@ -138,8 +138,19 @@ class Predictor(BasePredictor):
 
             start_time = time.time_ns() / 1e6
 
-            model = whisperx.load_model(whisper_arch, device, compute_type=compute_type, language=language,
-                                        asr_options=asr_options, vad_options=vad_options)
+            # Use Silero VAD instead of Pyannote to avoid compatibility issues between
+            # the legacy pyannote checkpoint shipped with whisperx and newer torch/pyannote.
+            # This is the recommended way in recent whisperx versions:
+            #   load_model(..., vad_method="silero", vad_options={...})
+            model = whisperx.load_model(
+                whisper_arch,
+                device,
+                compute_type=compute_type,
+                language=language,
+                asr_options=asr_options,
+                vad_options={**vad_options},
+                vad_method="silero",
+            )
 
             if debug:
                 elapsed_time = time.time_ns() / 1e6 - start_time
@@ -192,8 +203,15 @@ def get_audio_duration(file_path):
 
 def detect_language(full_audio_file_path, segments_starts, language_detection_min_prob,
                     language_detection_max_tries, asr_options, vad_options, iteration=1):
-    model = whisperx.load_model(whisper_arch, device, compute_type=compute_type, asr_options=asr_options,
-                                vad_options=vad_options)
+    # For language detection we also stick to Silero VAD for the same reason as above.
+    model = whisperx.load_model(
+        whisper_arch,
+        device,
+        compute_type=compute_type,
+        asr_options=asr_options,
+        vad_options={**vad_options},
+        vad_method="silero",
+    )
 
     start_ms = segments_starts[iteration - 1]
 
