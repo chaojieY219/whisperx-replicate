@@ -21,9 +21,8 @@ import ffmpeg
 
 compute_type = "float16"  # change to "int8" if low on GPU mem (may reduce accuracy)
 device = "cuda"
-# Use Hugging Face repo ID so whisperx/faster-whisper download the model themselves.
-# This avoids passing a local path (which newer huggingface_hub rejects as an invalid repo_id).
-whisper_arch = "deepdml/faster-whisper-large-v3-turbo-ct2"
+# Use faster-whisper "turbo" model; weights will be downloaded automatically.
+whisper_arch = "turbo"
 
 
 class Output(BaseModel):
@@ -47,56 +46,66 @@ class Predictor(BasePredictor):
                 shutil.copy(source_file_path, destination_folder)
 
     def predict(
-            self,
-            audio_file: Path = Input(description="Audio file"),
-            language: str = Input(
-                description="ISO code of the language spoken in the audio, specify None to perform language detection",
-                default=None),
-            language_detection_min_prob: float = Input(
-                description="If language is not specified, then the language will be detected recursively on different "
-                            "parts of the file until it reaches the given probability",
-                default=0
-            ),
-            language_detection_max_tries: int = Input(
-                description="If language is not specified, then the language will be detected following the logic of "
-                            "language_detection_min_prob parameter, but will stop after the given max retries. If max "
-                            "retries is reached, the most probable language is kept.",
-                default=5
-            ),
-            initial_prompt: str = Input(
-                description="Optional text to provide as a prompt for the first window",
-                default=None),
-            batch_size: int = Input(
-                description="Parallelization of input audio transcription",
-                default=64),
-            temperature: float = Input(
-                description="Temperature to use for sampling",
-                default=0),
-            vad_onset: float = Input(
-                description="VAD onset",
-                default=0.500),
-            vad_offset: float = Input(
-                description="VAD offset",
-                default=0.363),
-            align_output: bool = Input(
-                description="Aligns whisper output to get accurate word-level timestamps",
-                default=False),
-            diarization: bool = Input(
-                description="Assign speaker ID labels",
-                default=False),
-            huggingface_access_token: str = Input(
-                description="To enable diarization, please enter your HuggingFace token (read). You need to accept "
-                            "the user agreement for the models specified in the README.",
-                default=None),
-            min_speakers: int = Input(
-                description="Minimum number of speakers if diarization is activated (leave blank if unknown)",
-                default=None),
-            max_speakers: int = Input(
-                description="Maximum number of speakers if diarization is activated (leave blank if unknown)",
-                default=None),
-            debug: bool = Input(
-                description="Print out compute/inference times and memory usage information",
-                default=False)
+        self,
+        audio_file: Path = Input(
+            description="Audio file to transcribe (any ffmpeg-supported format)",
+        ),
+        language: str = Input(
+            description="ISO language code of the spoken language (set to None to auto-detect)",
+            default=None,
+        ),
+        language_detection_min_prob: float = Input(
+            description="Minimum confidence required for language detection; if not reached, detection retries on more segments",
+            default=0,
+        ),
+        language_detection_max_tries: int = Input(
+            description="Maximum number of segments to try for language detection before accepting the best guess",
+            default=5,
+        ),
+        initial_prompt: str = Input(
+            description="Optional text prompt for the first window to bias transcription",
+            default=None,
+        ),
+        batch_size: int = Input(
+            description="Number of audio chunks processed in parallel (higher is faster but uses more GPU memory)",
+            default=64,
+        ),
+        temperature: float = Input(
+            description="Sampling temperature for decoding (higher is more diverse but less stable)",
+            default=0,
+        ),
+        vad_onset: float = Input(
+            description="VAD threshold to start a speech segment (probability above this value starts speech)",
+            default=0.500,
+        ),
+        vad_offset: float = Input(
+            description="VAD threshold to end a speech segment (probability below this value ends speech)",
+            default=0.363,
+        ),
+        align_output: bool = Input(
+            description="If true, run alignment to refine word-level timestamps when supported for the detected language",
+            default=False,
+        ),
+        diarization: bool = Input(
+            description="If true, run speaker diarization and assign speaker labels to segments",
+            default=False,
+        ),
+        huggingface_access_token: str = Input(
+            description="Hugging Face access token (read) required for gated pyannote diarization models",
+            default=None,
+        ),
+        min_speakers: int = Input(
+            description="Minimum number of speakers for diarization (leave None if unknown)",
+            default=None,
+        ),
+        max_speakers: int = Input(
+            description="Maximum number of speakers for diarization (leave None if unknown)",
+            default=None,
+        ),
+        debug: bool = Input(
+            description="If true, print detailed timing and GPU memory usage information",
+            default=False,
+        )
     ) -> Output:
         with torch.inference_mode():
             asr_options = {
